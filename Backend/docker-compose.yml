@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  mongo:
+    image: mongo:6
+    container_name: mongo
+    restart: always
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_DATABASE: warap
+    volumes:
+      - ./data:/data/db
+
+  backend:
+    build: .
+    container_name: warap-backend
+    restart: always
+    ports:
+      - "5001:5001"
+    environment:
+      - MONGO_URI=mongodb://mongo:27017/warap
+    depends_on:
+      - mongo
+    volumes:
+      - .:/usr/src/app
+    command: node server.js
