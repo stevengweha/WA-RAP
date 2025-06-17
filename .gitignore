@@ -1,0 +1,43 @@
+# Django specific files
+*.pyc
+*.pyo
+*.pyd
+__pycache__/
+*.sqlite3
+db.sqlite3
+
+# Environment variables
+.env
+*.env
+
+# Virtual environment
+.venv/
+env/
+
+# IDE specific files
+.vscode/
+.idea/
+
+# Logs and debug files
+*.log
+debug.log
+
+# Static and media files
+staticfiles/
+media/
+
+# Coverage reports
+.coverage
+htmlcov/
+.coverage.*
+
+# Build files
+build/
+dist/
+
+# Node modules (if using frontend with Django)
+node_modules/
+
+# Miscellaneous
+.DS_Store
+Thumbs.db
