@@ -1,6 +1,7 @@
-const User = require('models/User');
+const User = require('../models/User');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const { authenticateJWT, authorizeRoles } = require('../middleware/auth');
 const express = require('express');
 const app = express();
 const bodyParser = require('body-parser');
@@ -11,84 +12,100 @@ app.use(bodyParser.json());
 app.use(cors());
 
 // ===================
-// Inscription
+// Inscription étape 1
 // ===================
-exports.registerUser = async (req, res) => {
-  const {
-    email,
-    password,
-    nom,
-    prenom,
-    telephone,
-    adresse,
-    codePostal,
-    ville,
-    dateNaissance,
-  } = req.body;
-
+exports.register = async (req, res) => {
   try {
-    const userExists = await User.findOne({ email });
-    if (userExists) return res.status(400).json({ message: 'Email already in use' });
+    const { nom, prenom, email, motDePasse, telephone, adresse } = req.body;
 
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
+    // Vérifie si l'utilisateur existe déjà
+    const existingUser = await User.findOne({ email });
+    if (existingUser) return res.status(400).json({ message: 'Email déjà utilisé.' });
 
-    const newUser = await User.create({
-      email,
-      password: hashedPassword,
+    // Hash du mot de passe
+    const hashedPassword = await bcrypt.hash(motDePasse, 10);
+
+    // Création de l'utilisateur (infos de base)
+    const user = new User({
       nom,
       prenom,
+      email,
+      motDePasse: hashedPassword,
       telephone,
-      adresse,
-      codePostal,
-      ville,
-      dateNaissance,
-      role: 'user', // Assigner un rôle par défaut à l'utilisateur
-
+      adresse
     });
 
-    // Création du token JWT avec l'ID et le rôle
+    await user.save();
+
+    // Génère un token pour la suite du processus
     const token = jwt.sign(
-      { id: newUser._id, role: newUser.role },
+      { userId: user._id },
       process.env.JWT_SECRET,
-      { expiresIn: '1d' }
+      { expiresIn: '1h' }
     );
 
-    // Réponse avec le token et l'utilisateur
-    res.status(201).json({ token, user: newUser });
+    res.status(201).json({ message: 'Première étape réussie. Veuillez compléter votre profil.', token });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: 'Erreur serveur', error: err.message });
   }
 };
 
 // ===================
-// Connexion
+// Inscription étape 2 (complétion du profil)
 // ===================
-exports.loginUser = async (req, res) => {
-  const { email, password } = req.body;
+exports.completeRegistration = [
+  authenticateJWT,
+  async (req, res) => {
+    try {
+      const { role, photoProfil, competences, bio } = req.body;
+      const userId = req.user.userId;
 
+      // Met à jour l'utilisateur avec les infos complémentaires
+      const user = await User.findByIdAndUpdate(
+        userId,
+        { role, photoProfil, competences, bio },
+        { new: true }
+      );
+
+      if (!user) return res.status(404).json({ message: 'Utilisateur non trouvé.' });
+
+      res.json({ message: 'Profil complété avec succès.', user });
+    } catch (err) {
+      res.status(500).json({ message: 'Erreur serveur', error: err.message });
+    }
+  }
+];
+
+exports.login = async (req, res) => {
   try {
-    // Vérifier si l'utilisateur existe
+    const { email, motDePasse } = req.body;
+
+    // Recherche de l'utilisateur
     const user = await User.findOne({ email });
-    if (!user) return res.status(400).json({ message: 'Email or password is invalid' });
+    if (!user) return res.status(400).json({ message: 'Email incorrect.' });
 
     // Vérification du mot de passe
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) return res.status(400).json({ message: 'Email or password is invalid' });
+    const isMatch = await bcrypt.compare(motDePasse, user.motDePasse);
+    if (!isMatch) return res.status(400).json({ message: ' mot de passe incorrect.' });
 
-    // Création du token JWT avec l'ID et le rôle
+    // Génération du token JWT
     const token = jwt.sign(
-      { id: user._id, role: user.role },
+      { userId: user._id, role: user.role },
       process.env.JWT_SECRET,
-      { expiresIn: '1d' }
+      { expiresIn: '24h' }
     );
 
-    // Réponse avec le token et les informations de l'utilisateur
-    res.status(200).json({ token, user });
+    res.json({ token, user: { id: user._id, nom: user.nom, prenom: user.prenom, email: user.email, role: user.role } });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: 'Erreur serveur', error: err.message });
   }
 };
 
+// Exemple de route protégée par rôle (à utiliser dans vos routes)
+// exports.adminOnly = [
+//   authenticateJWT,
+//   authorizeRoles('admin'),
+//   (req, res) => {
+//     res.json({ message: 'Bienvenue, admin !' });
+//   }
+// ];

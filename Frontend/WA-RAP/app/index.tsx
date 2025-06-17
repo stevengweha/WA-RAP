@@ -26,7 +26,7 @@ export default function Index() {
             <Link href="/auth/login" style={styles.buttonText}>Se connecter</Link>
           </TouchableOpacity>
           <TouchableOpacity style={[styles.button, styles.buttonOutline]}>
-            <Link href="/auth/register" style={[styles.buttonText, { color: "#205C3B" }]}>Créer un compte</Link>
+            <Link href="/auth/add" style={[styles.buttonText, { color: "#205C3B" }]}>Créer un compte</Link>
           </TouchableOpacity>
         </View>
       </View>

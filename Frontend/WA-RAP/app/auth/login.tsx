@@ -1,11 +1,49 @@
 import { Ionicons } from "@expo/vector-icons";
-import { Link } from "expo-router";
+import { Link, useRouter } from "expo-router";
 import { useState } from "react";
-import { SafeAreaView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, SafeAreaView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 
 export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const router = useRouter();
+
+  const handleLogin = async () => {
+    if (!email || !password) {
+      Alert.alert("Erreur", "Veuillez remplir tous les champs.");
+      return;
+    }
+    setLoading(true);
+    try {
+      const response = await fetch("http://localhost:5001/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+      if (!response.ok) throw new Error("Identifiants invalides");
+      const data = await response.json();
+      // data doit contenir { token, role }
+      // Stockage du token si besoin (AsyncStorage, etc.)
+      switch (data.role) {
+        case "posteur":
+          router.push("/offreur/home-offer");
+          break;
+        case "chercheur":
+          router.push("/Travailleur/home-user");
+          break;
+        case "admin":
+          router.push("/Admin/dashboard");
+          break;
+        default:
+          Alert.alert("Erreur", "Rôle inconnu.");
+      }
+    } catch (e) {
+      Alert.alert("Erreur", "Email ou mot de passe incorrect.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -32,8 +70,12 @@ export default function Login() {
           onChangeText={setPassword}
           secureTextEntry
         />
-        <TouchableOpacity style={styles.button}>
-          <Text style={styles.buttonText}>Se connecter</Text>
+        <TouchableOpacity style={styles.button} onPress={handleLogin} disabled={loading}>
+          {loading ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={styles.buttonText}>Se connecter</Text>
+          )}
         </TouchableOpacity>
         <View style={{ flexDirection: "row", justifyContent: "center", marginTop: 16 }}>
           <Text style={{ color: "#333" }}>Pas de compte ? </Text>
